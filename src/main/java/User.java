@@ -4,11 +4,23 @@ public class User {
 
     @Getter @Setter
     protected String username;
+
+    @Getter @Setter
     protected String password;
+
+    @Getter @Setter
     protected String host;
+
+    @Getter @Setter
     protected String[] permissions;
+
+    @Getter @Setter
     protected boolean lock;
+
+    @Getter @Setter
     protected String creationDate;
+
+    @Getter @Setter
     protected String creator_id;
 
 
