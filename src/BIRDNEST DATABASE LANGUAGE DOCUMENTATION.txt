@@ -1,0 +1,320 @@
+BIRDNEST DATABASE LANGUAGE
+
+Authored and Coded by: HMythical
+
+Current Version: 1.0
+
+
+This SQL Clone was created by HMythical for the purposes of making databases with SQL better. 
+The objective was to create a simple, and easy-to-learn language that has powerful features to support usage
+outside of the open-source market. This project is 100% open-source. Any user may utilize this documentation
+to create their own versions of BDL, with the constraint that, all users who choose to do this must credit the
+original author of the documentation. The source code is also open source.
+Any user may use the source code as they wish, however...
+YOU MUST CREDIT THE ORIGINAL AUTHOR FOR ANY USAGE OF BDL. Whether it be for your open-source project,
+or if you are a corporate entity, who decided to give this software a chance.
+
+
+This SQL Clone is in honor of my APCSA Teacher, Richard Crow, who inspired me to create a language that encapsulated
+birds as the main focus of all the commands, keywords, and definition, without him, I wouldn't have even attempted 
+to make this project work. To him, thank you for all that you've done to inspire me to continue my career in CS
+
+
+Signed,
+	HMythical
+
+
+FOR USERS WHO DONT GET THE PUNS:
+
+EGGS =  COLUMNS
+NESTS = TABLES
+CHICKS = USERS
+ROOSTER = TEMP-ADMIN
+CROW = ADMIN
+
+any paramters that have egg or nest in the name, please refer to this to not be as confused.
+
+
+
+SECTION I: COMMANDS
+
+------------------------------------------------------------------------------------------------------------QUERYING DATA------------------------------------------------------------------------------------------------------------
+1. PICK EGG [SPECIFIC] egg1,egg2,... (SELECT)
+	FROM nest_name
+	[FIND condition]
+	[NEST WITH nest_name]
+	[HAS condition]
+	[SORT BY nest_name [ASCO|DESCO]]
+	[LIMIT BY offset, count];
+	
+	// SELECTS AND DISPLAYS GIVEN VALUES FROM A NEST (table). CAN LIMIT AND SUPPORT CONDITIONALS AND SORT FROM ASCENDING/DESCENDING ORDER (ASCO|DESCO)
+	// THROWS EGGNOTFOUNDEXCEPTION IF EGG IS NOT WITHIN THE NEST YOU ARE CURENTLY SEARCHING THROUGH OR IS NOT IN THE NESTMIND
+-----------------------------------------------------------------------------------------------------------MANIPULATING DATA---------------------------------------------------------------------------------------------------------
+	
+1. LAY EGG INTO nest_name (egg1,egg2) (INSERT INTO)...
+	EGGS(newEgg1,newEgg2)
+	
+	// INSERTS NEW ENTRY/S INTO THE GIVEN NEST (TABLE)
+	// THROWS NOACCESSEXCPETION IF ACCESS LEVEL IS TOO LOW OR YOUR ACCESS TO THE EGG/NEST HAS BEEN CHANGED [E.G NOT AN ADMIN]
+	// THROWS NULLPOINTEREXCEPTION IF YOU ATTEMPT TO ADD AN EGG INTO A NEST THAT DOES NOT EXIST
+	
+	
+2. UPDATE NEST nest_name
+	SET egg1 = value1, egg2 = value2
+	[WHILE condition]
+	
+	//UPDATES A GIVEN NEST WITH ANY ACTION THE USER WOULD NEED [E.g changing the status of a nest to ADMIN_ONLY access] SUPPORTS CONDITIONS
+	// THROWS NOACCESSEXCPETION IF ACCESS LEVEL IS TOO LOW OR YOUR ACCESS TO THE EGG/NEST HAS BEEN CHANGED [E.G NOT AN ADMIN]
+	// THROWS NULLPOINTEREXCEPTION IF YOU ATTEMPT TO UPDATE AN EGG INTO A NEST THAT DOES NOT EXIST	
+	
+3. REMOVE EGG [STRINGLIT egg_name] FROM NEST [STRINGLIT nest_name]
+	[WHILE conditon]
+	
+	// REMOVES AN EGG FROM A GIVEN NEST WHILST SUPPORTING A GIVEN CONDITIONAL
+	// [E.g REMOVE EGG FROM NEST nest5 WHILE status eql 'rotten']
+	// THROWS NOACCESSEXCPETION IF ACCESS LEVEL IS TOO LOW OR YOUR ACCESS TO THE EGG/NEST HAS BEEN CHANGED [E.G NOT AN ADMIN]
+	// THROWS NULLPOINTEREXCEPTION IF YOU ATTEMPT TO REMOVE AN EGG THAT DOES NOT EXIST
+	
+-------------------------------------------------------------------------------------------------------NEST FUNCTIONALITY & DEFINITIONS----------------------------------------------------------------------------------------------
+
+1. CREATE NEW NEST nest_name {
+	column1 datatype [limits]
+	column2 datatype [limits]
+	...
+	[HOME KEY (nest_name)]
+	}
+	
+	// CREATES A NEW NEST WITH A NAME AS INPUT
+	// CREATES EGGS BASED ON NAME, DATATYPE, AND LIMITS SET BY THE USER
+	// THROWS FAULTYPERMISSIONSEXCEPTION IF YOU DO NOT HAVE PERMISSION TO CREATE/ALTER NESTS WITHIN YOUR NESTMIND
+	
+
+2. CHANGE NEST nest_name
+	ADD egg_name datatype [limits
+	
+	ADDITONAL OPERATIONS:
+		DROP EGG egg_name;
+		MODIFY EGG egg_name, new_datatype;
+		
+	// CHANGES A GIVEN NEST'S PROPERTIES:
+	// CAN BE USED TO ADD,REMOVE, OR CHANGE DATA-TYPES OF EGGS INSIDE NESTS
+	// THROWS NESTUNALTERABLEEXCEPTION IF NEST STATUS = UNATLERABLE
+	// THROWS FAULTYPERMISSIONSEXCEPTION IF YOU DO NOT HAVE PERMISSION TO CREATE/ALTER NESTS WITHIN YOUR NESTMIND
+	
+	
+
+3. DESTROY NEST [IF EXISTS] nest_name;
+	
+	// COMPLETELY REMOVES A GIVEN NEST 
+	// THROWS NESTNOTFOUNDEXCEPTION IF NEST DOES NOT EXIST 
+	// THROWS NESTUNALTERABLEEXCEPTION IF NEST STATUS = UNATLERABLE
+	// THROWS FAULTYPERMISSIONSEXCEPTION IF YOU DO NOT HAVE PERMISSION TO CREATE/ALTER NESTS WITHIN YOUR NESTMIND
+	
+
+4. EXPORT NEST nest_name
+	[TO destination]
+	[FILETYPE file_type_name ]
+	[WHILE condition]
+	
+	// CONVERTS A GIVEN NEST INTO A GIVEN READABLE FILE-TYPE (PDF, WORD, EXCEL, GOOGLE SHEET,ETC)
+	// THROWS NOEXPORTEXCEPTION IF YOU DO NOT HAVE PERMISSION TO EXPORT THE NEST
+	// THROWS FAULTYPERMISSIONSEXCEPTION IF YOU DO NOT HAVE PERMISSION TO CREATE/ALTER NESTS WITHIN YOUR NESTMIND
+	// ADMIN_USER ONLY COMMAND [ACCESS CAN BE GIVEN TO USERS FOR A SET DURATION OF TIME OR THROUGH AN ENCRYPTED KEY
+	// [E.G #1 PACKAGE NEST example TO 'C:\Users\example\Downloads\stuff' FILETYPE 	pdf WHILE myStatus = TEMP_ADMIN_ACCESS
+	
+
+5. GRAPH NEST nest_name 
+	[TYPE graph_type]
+	[FILETYPE file_type_name]
+	[TO destination]
+	[GROUPS group1, group2, ...] 
+	
+	
+	/* READS THROUGH A GIVEN NEST AND GRAPHS BASED ON USER COMMANDS AND NUMERICAL DATA GIVEN. ADDITIONALLY
+		GRAPHS BASED ON GROUPS. DIVIDES THE TOTAL NUMBER INTO SECTIONS BASED ON THE NAMES OF EACH GROUP
+		USES PICK EGG COMMAND TO SEARCH AND QUERY THROUGH THE NEST TO FIND EGGS THAT ARE ASSIGNED BY THE
+		GROUP PARAMETER.
+		OUTPUTS SAID GRAPH INTO A FILE BASED ON THE GIVEN FILE-TYPE. [PDF OR ANY PICTURE FORMAT]
+	*/
+	// [E.G GRAPH NEST graphing_nest TYPE pie FILETYPE jpeg TO 'C:\Users\example\Downloads\Graphs' GROUPS bacon_lovers, chicken_lovers, beef_lovers
+	// THROWS NOEXPORTEXCEPTION IF YOU DO NOT HAVE PERMISSION TO EXPORT THE NEST
+	// THROWS FAULTYPERMISSIONSEXCEPTION IF YOU DO NOT HAVE PERMISSION TO CREATE/ALTER NESTS WITHIN YOUR NESTMIND
+	// THROWS UNGRAPHABLEEXCEPTION IF THE NEST DOES NOT HAVE ANY NUMERICAL DATA, HAS LESS THAN 0 GROUPS, OR IF NEST IS DESIGNATED UNGRAPHABLE
+	
+	
+	
+
+----------------------------------------------------------------------------------------------------------------------INDEXING-------------------------------------------------------------------------------------------------------
+
+1. CREATE NEW INDEX index_name
+	ON nest_name (egg1,egg2,...);
+	
+2. DELETE INDEX index_name ON nest_name;
+
+
+
+----------------------------------------------------------------------------------------------------------------------JOINS & AGGREGATIONS-------------------------------------------------------------------------------------------
+
+
+1. INNER JOIN nest2 ON nest1.egg = nest2.egg;
+	PICK EGG eggs
+	FROM nest1
+	
+
+2. [DIRECTION] JOIN nest2 ON nest1.egg = nest2.egg;
+
+	PICK EGG eggs
+	FROM nest1
+	
+	
+
+---------------------------------------------------------------------------------------------------------------------USERS & PERMISSIONS--------------------------------------------------------------------------------------------
+
+
+1. HATCH NEW CHICK  [STRINGLIT userName] @'host' [RECOGNITION recognitionType];
+
+	// CREATES A NEW USER FOR THE NESTMIND. SETS THEIR NAME, HOW THEY WILL LOG-IN, AND THEIR PERMISSION LEVEL
+	// [E.G CREATE NEW CHICK 'admin'@'host' RECOGNITION 'auth_key'
+	
+
+2. DROP CHICK [STRINGLIT userName] [STRINGLIT reason];
+
+	// REMOVES A USER FROM THE NESTMIND. REMOVES ALL ACCESS TO ALL FILES/NESTS WITHIN THE NESTMIND
+	// [STRINGLIT reason] is an optional parameter
+	
+3. GRANT CHICK userName [PERMISSION permission_type] TO [NEST awarded_nest] DURATION [DURATION lengthInSeconds]
+
+	// GRANTS A DESIGNATED USER A PERMISSION OR SET OF PERMISSIONS TO CERTAIN NESTS OR THE WHOLE NESTMIND
+	// THIS PERMISSION IS EXTREMELY DANGEROUS AND SHOULD ONLY BE USED BY ADMINISTRATORS. 
+	// PERMISSIONS CANNOT NORMALLY BE GRANTED PERMANENTLY, DUE TO HOW POWERFUL THIS COMMAND IS. ADMINISTRATORS ONLY CAN SET THE DURATION
+	// ADMINISTRATOR ONLY
+	
+	E.G #1 GRANT CHICK engineer TEMP-ADMIN TO '*' DURATION 259200
+	GRANTS THE ENGINEER USER TEMP-ADMIN ACCESS TO ALL NESTS IN THE NESTMIND FOR 3 DAYS
+	
+	E.G #2 GRANT CHICK admin_son ADMIN+ TO '*' DURATION '*'
+	GRANTS THE ADMIN_SON USER ADMIN+ ACCESS TO ALL NESTS IN THE NESTMIND PERMANENTLY
+	//REQUIRES AUTH_KEY AND APPROVAL FROM 3 OTHER ADMIN LEVEL USERS
+
+
+4. REVOKE PERMISSION [PERMISSION permission_type] FROM [STRINGLIT userName] DURATION [DURATION length]
+
+	// REMOVES PERMISSIONS FROM A USER 
+	
+
+5.  CREATE ROLE [STRINGLIT role_name] [INTEGER hierarchy_number]
+
+	// CREATES A ROLE WITHIN THE USER-DATABASE WITH A GIVEN HIERARCHY, 0 BEING THE HIGHEST AND 10 BEING THE LOWEST
+
+
+6. INIT DEBUG USER [INTEGER timeLength]
+    // GIVES THE CURRENT USER TEMP-ADMIN ACCESS SO THAT THEY MAY CREATE A NESTMIND,NESTS, AND EGGS TO TEST THE LANGUAGE
+    // GIVES ADMINISTRATOR LEVEL ACCESS TO THE CURRENT USER
+    // EXOURES AFTER 30 MINUTES OR WHEN THE USER LOGS OUT
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------UTILITY FUNCTIONS--------------------------------------------------------------------------------------------
+
+
+1. GROUP BY [STRINGLIT egg2] FROM [STRINGLIT NEST] | [ FUNCTION/COMMAND HERE]
+
+	// GROUPS EGGS BY A GIVEN EGG FROM A GIVEN NEST. PERFORMS FUNCTION/COMMAND AFTER GROUPING
+	
+
+2. [DIRECTION] JOIN nest 2 ON nest1.egg = nest2.egg && PICK EGG *
+
+	// PICKS ALL EGGS FROM A GIVEN NEST, THEN JOINS THE 2ND AND FIRST NEST'S EGG TO FORM A 2ND EGG
+	
+
+ASSUME ALL OTHER SQL UTILITY FUNCTIONS WORK, JUST MAKE SURE TO USE EGGS AND NESTS AND CHICK WHEN APPROPRIATE
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	
+
+
+
+
+
+
+
+
+SECTION II: KEYWORDS
+
+THESE SELECTIONS OF KEYWORDS ARE MEANT TO BE PUNS ON AVIAN BASED TERMINOLOGY. 
+ON THE LEFT SIDE, ARE THE NAMES I CAME UP WITH, THE RIGHT SIDE IS THE SQL EQUIVALENT
+THIS LIST IS NOT COMPLETE, NOR WILL IT EVER BE, FEEDBACK AND SUGGESTIONS ARE HIGHLY APPRECIATED
+
+1. DATATYPES & CONSTRAINTS
+INTEGER - NON-FLOATING-POINT NUMBERS
+VARICHAR - SINGULAR CHARACTERS
+STRINGLIT - ARRAYS OF VARICHARS
+MIGRATIONDATE - DATES
+FLIGHTMODE - BOOLEANS
+ROOSTKEY - PRIMARY KEY
+FLOCKKEY - FOREIGN KEY
+SOLITARY - UNIQUE
+
+2. QUERY OPERATIONS
+PECK EGG - SELECT
+BRANCH - FROM
+PERCH - WHERE
+FLOCK - GROUP BY
+ARRANGE - ORDER BY
+LIMIT 
+
+3. JOINS & AGGREGATIONS
+FLOCKWITH - JOIN
+NESTFLOCK - INNER JOIN
+WINGFLOCK - LEFT JOIN
+TALONFLOCK - RIGHT JOIN
+COUNTFEATHER - COUNT
+SWARM  - SUM
+AVIANAVG - AVG
+
+4. DATA MANIPULATION
+LAY - INSERT
+SHED - UPDATE
+DROP - DELETE
+CLUTCH - VALUES
+
+5. TRANSACTIONS & PERMISSIONS & USERS
+TAKEOFF - COMMIT
+GLIDE - ROLLBACK
+HATCH - GRANT
+PLUCK PERMISSION - REVOKE
+
+6. UTILITY FUNCTIONS [CUSTOM & BASE FUNCTIONS]
+
+SING - EXPORT
+INSPECT NEST - DESCRIBE
+
+
+
+
+
+
+
+
+ERRORS/EXCEPTIONS:
+
+EGGBURSTEXCEPTION
+UNGRAPHABLEEXCEPTION
+TEMPPERMISSIONEXCEPTION
+DUPLICATENESTEXCEPTION
+NOEXPORTEXCEPTION
+FILETYPEEXCEPTION
+BROKENWINGEXCEPTION
+EMPTYFLOCKEXCEPTION
+AUTHKEYEXCEPTION
+ADMINAPPROVALEXCEPTION
+NESTUNALTERABLEEXCEPTIONFAULTYPERMISSIONEXCEPTION
+NULLPOINTEREXCEPTION
+NOACCESSEXCPETION
+EGGNOTFOUNDEXCEPTION
+NESTNOTFOUNDEXCEPTION
+

@@ -3,17 +3,32 @@ import lombok.Getter;
 import lombok.Setter;
 import java.security.*;
 import java.io.Serializable;
-import net.bytebuddy.*;
+import net.bytebuddy.ByteBuddy;
+import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
+import net.bytebuddy.implementation.FixedValue;
+import net.bytebuddy.matcher.ElementMatchers;
 
-public class UserDatabase {
+public class UserDatabase implements Serializable {
 
     @Getter @Setter
     private Map<String, User> users;
+
+    @Getter @Setter
     private Map<String, String> userPasswords;
+
+    @Getter @Setter
     private Map<String, String> userHosts;
+
+    @Getter @Setter
     private Map<String, String[]> userPermissions;
+
+    @Getter @Setter
     private Map<String, Boolean> userLocks;
+
+    @Getter @Setter
     private Map<String, String> userCreationDates;
+
+    @Getter @Setter
     private Map<String, String> userCreatorIds;
 
 
@@ -28,31 +43,17 @@ public class UserDatabase {
     }
 
     public void addUser(User user) {
-        if (users.containsKey(user.getUsername())) {
-            throw new IllegalArgumentException("User already exists");
-        }
-        users.put(user.getUsername(), user);
-        userPasswords.put(user.getUsername(), user.getPassword());
-        userHosts.put(user.getUsername(), user.getHost());
-        userPermissions.put(user.getUsername(), user.getPermissions());
-        userLocks.put(user.getUsername(), user.isLock());
-        userCreationDates.put(user.getUsername(), user.getCreationDate());
-        userCreatorIds.put(user.getUsername(), user.getCreator_id());
-    }
-
-
-
-    public User getUser(String username) {
-        if (!users.containsKey(username)) {
-            throw new IllegalArgumentException("User does not exist");
-        }
-        return users.get(username);
+        String username = user.getUsername();
+        users.put(username, user);
+        userPasswords.put(username, hashPassword(user.getPassword()));
+        userHosts.put(username, user.getHost());
+        userPermissions.put(username, user.getPermissions());
+        userLocks.put(username, user.isLock());
+        userCreationDates.put(username, user.getCreationDate());
+        userCreatorIds.put(username, user.getCreator_id());
     }
 
     public void removeUser(String username) {
-        if (!users.containsKey(username)) {
-            throw new IllegalArgumentException("User does not exist");
-        }
         users.remove(username);
         userPasswords.remove(username);
         userHosts.remove(username);
@@ -62,25 +63,61 @@ public class UserDatabase {
         userCreatorIds.remove(username);
     }
 
-    public boolean encryptUserData(String username, String key) {
-        if (!users.containsKey(username)) {
-            throw new IllegalArgumentException("User does not exist");
+    public void updateUser(String username, User updatedUser) {
+        if (users.containsKey(username)) {
+            removeUser(username);
+            addUser(updatedUser);
         }
+    }
+
+    public User getUser(String username) {
+        return users.get(username);
+    }
+
+    public void modifyPermissions(String username, String[] newPermissions) {
+        if (users.containsKey(username)) {
+            User user = users.get(username);
+            user.setPermissions(newPermissions);
+            userPermissions.put(username, newPermissions);
+        }
+    }
+
+    public void setUserLock(String username, boolean lock) {
+        if (users.containsKey(username)) {
+            User user = users.get(username);
+            user.setLock(lock);
+            userLocks.put(username, lock);
+        }
+    }
+
+    private String hashPassword(String password) {
         try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] keyBytes = key.getBytes();
-            byte[] hashedKey = md.digest(keyBytes);
-
-            // Encrypt user data using the hashed key (this is a placeholder for actual encryption logic)
-            String encryptedPassword = Base64.getEncoder().encodeToString(hashedKey);
-            userPasswords.put(username, encryptedPassword);
-
-            // You can add more encryption logic for other fields if needed
-
-            return true;
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(password.getBytes());
+            return Base64.getEncoder().encodeToString(hash);
         } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-            return false;
+            return password;
         }
+    }
+
+    public User encryptUser(User user) throws Exception {
+        Class<?> encryptedUserClass = new ByteBuddy()
+                .subclass(User.class)
+                .method(ElementMatchers.named("getPassword"))
+                .intercept(FixedValue.value("ENCRYPTED"))
+                .make()
+                .load(getClass().getClassLoader(), ClassLoadingStrategy.Default.WRAPPER)
+                .getLoaded();
+
+        User encryptedUser = (User) encryptedUserClass.getDeclaredConstructor(
+                String.class, String.class, String.class, String[].class,
+                boolean.class, String.class, String.class
+        ).newInstance(
+                user.getUsername(), user.getPassword(), user.getHost(),
+                user.getPermissions(), user.isLock(), user.getCreationDate(),
+                user.getCreator_id()
+        );
+
+        return encryptedUser;
     }
 }
