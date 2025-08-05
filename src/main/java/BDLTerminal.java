@@ -10,6 +10,10 @@ import java.util.HashSet;
 import java.util.Set;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 public class BDLTerminal extends JFrame {
     private JTextPane outputArea;
@@ -25,7 +29,13 @@ public class BDLTerminal extends JFrame {
     private Style stringStyle;
     private Style numberStyle;
 
-    public BDLTerminal() {
+    // Regular expressions for command syntax
+    private static final Pattern HATCH_PATTERN = Pattern.compile(
+        "HATCH\\s+NEW\\s+CHICK\\s+'([^']+)'@'([^']+)'\\s+RECOGNITION\\s+'([^']+)'",
+        Pattern.CASE_INSENSITIVE
+    );
+
+    public BDLTerminal() throws Exception {
         // Initialize CommandProcessor with UserDatabase
         UserDatabase userDatabase = new UserDatabase();
         commandProcessor = new CommandProcessor(userDatabase);
@@ -105,7 +115,15 @@ public class BDLTerminal extends JFrame {
             }
         });
 
-        appendOutput("BDL Terminal - Ready\n");
+        // Add window listener for cleanup
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                cleanup();
+            }
+        });
+
+        appendOutput("BDL Terminal - Ready\nType 'help' for available commands\n");
     }
 
     private void initializeKeywords() {
@@ -133,98 +151,130 @@ public class BDLTerminal extends JFrame {
         StyleConstants.setForeground(numberStyle, Color.YELLOW);
     }
 
+    private void highlightSyntax() {
+        String text = inputField.getText();
+        DefaultStyledDocument doc = new DefaultStyledDocument();
+        try {
+            // Set default style
+            SimpleAttributeSet defaultStyle = new SimpleAttributeSet();
+            StyleConstants.setForeground(defaultStyle, Color.GREEN);
+            StyleConstants.setFontFamily(defaultStyle, "Consolas");
+            doc.insertString(0, text, defaultStyle);
+
+            // Highlight patterns
+            highlightPattern(doc, "\\b(HATCH|DROP|GRANT|REVOKE|CREATE|ROLE|PICK|EGG|NEST|LAY|INTO|UPDATE|SET)\\b", keywordStyle);
+            highlightPattern(doc, "'[^']*'", stringStyle);
+            highlightPattern(doc, "\\b\\d+\\b", numberStyle);
+            highlightPattern(doc, "@", stringStyle);
+
+        } catch (BadLocationException e) {
+            e.printStackTrace();
+        }
+
+        // Preserve caret position
+        int caretPos = inputField.getCaretPosition();
+        inputField.setDocument(doc);
+        inputField.setCaretPosition(Math.min(caretPos, doc.getLength()));
+    }
+
+    private void highlightPattern(DefaultStyledDocument doc, String patternStr, Style style) {
+        Pattern pattern = Pattern.compile(patternStr, Pattern.CASE_INSENSITIVE);
+        try {
+            String text = doc.getText(0, doc.getLength());
+            Matcher matcher = pattern.matcher(text);
+            while (matcher.find()) {
+                doc.setCharacterAttributes(matcher.start(),
+                    matcher.end() - matcher.start(), style, true);
+            }
+        } catch (BadLocationException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void appendOutput(String text) {
         try {
-            // Apply syntax highlighting to output
+            SimpleAttributeSet style = new SimpleAttributeSet();
+
             if (text.startsWith(">")) {
-                // Command echo gets blue color
-                SimpleAttributeSet commandStyle = new SimpleAttributeSet();
-                StyleConstants.setForeground(commandStyle, Color.BLUE);
-                doc.insertString(doc.getLength(), text, commandStyle);
-            } else if (text.contains("Error:") || text.contains("FAULTYPERMISSION")) {
-                // Errors in red
-                SimpleAttributeSet errorStyle = new SimpleAttributeSet();
-                StyleConstants.setForeground(errorStyle, Color.RED);
-                doc.insertString(doc.getLength(), text, errorStyle);
+                StyleConstants.setForeground(style, Color.CYAN);
+            } else if (text.contains("Error:") || text.contains("FAULTY")) {
+                StyleConstants.setForeground(style, Color.RED);
+                StyleConstants.setBold(style, true);
             } else if (text.contains("Successfully")) {
-                // Success messages in bright green
-                SimpleAttributeSet successStyle = new SimpleAttributeSet();
-                StyleConstants.setForeground(successStyle, new Color(0, 255, 0));
-                doc.insertString(doc.getLength(), text, successStyle);
+                StyleConstants.setForeground(style, new Color(0, 255, 0));
             } else {
-                // Response gets default green color
-                SimpleAttributeSet style = new SimpleAttributeSet();
                 StyleConstants.setForeground(style, Color.GREEN);
-                doc.insertString(doc.getLength(), text, style);
             }
+
+            doc.insertString(doc.getLength(), text, style);
             outputArea.setCaretPosition(doc.getLength());
         } catch (BadLocationException e) {
             e.printStackTrace();
         }
     }
 
-    private void highlightSyntax() {
-        String text = inputField.getText();
-        DefaultStyledDocument doc = new DefaultStyledDocument();
+    private void cleanup() {
         try {
-            // Set default white color for input
-            SimpleAttributeSet defaultInputStyle = new SimpleAttributeSet();
-            StyleConstants.setForeground(defaultInputStyle, Color.WHITE);
-            doc.insertString(0, text, defaultInputStyle);
-
-            // Split by spaces but preserve strings in single quotes
-            List<String> tokens = new ArrayList<>();
-            StringBuilder currentToken = new StringBuilder();
-            boolean inQuotes = false;
-
-            for (char c : text.toCharArray()) {
-                if (c == '\'') {
-                    inQuotes = !inQuotes;
-                    currentToken.append(c);
-                } else if (c == ' ' && !inQuotes) {
-                    if (currentToken.length() > 0) {
-                        tokens.add(currentToken.toString());
-                        currentToken = new StringBuilder();
-                    }
-                } else {
-                    currentToken.append(c);
-                }
+            if (commandProcessor != null) {
+                commandProcessor.shutdown();
             }
-            if (currentToken.length() > 0) {
-                tokens.add(currentToken.toString());
-            }
-
-            // Highlight tokens
-            int pos = 0;
-            for (String token : tokens) {
-                pos = text.indexOf(token, pos);
-                if (pos == -1) continue;
-
-                if (keywords.contains(token.toUpperCase())) {
-                    doc.setCharacterAttributes(pos, token.length(), keywordStyle, true);
-                } else if (token.matches("'.*'")) {
-                    doc.setCharacterAttributes(pos, token.length(), stringStyle, true);
-                } else if (token.matches("\\d+")) {
-                    doc.setCharacterAttributes(pos, token.length(), numberStyle, true);
-                } else if (token.contains("@")) {
-                    doc.setCharacterAttributes(pos, token.length(), stringStyle, true);
-                } else {
-                    doc.setCharacterAttributes(pos, token.length(), defaultInputStyle, true);
-                }
-                pos += token.length();
-            }
-        } catch (BadLocationException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
+    }
 
-        inputField.setDocument(doc);
-        inputField.setCaretPosition(text.length());
+    // Handle command input with proper error handling
+    private void processInput(String command) {
+        if (command.trim().isEmpty()) {
+            return;
+        }
+
+        if (command.equalsIgnoreCase("help")) {
+            displayHelp();
+            return;
+        }
+
+        try {
+            String result = commandProcessor.processCommand(command);
+            appendOutput(result + "\n");
+        } catch (Exception e) {
+            appendOutput("Error: " + e.getMessage() + "\n");
+        }
+    }
+
+    private void displayHelp() {
+        StringBuilder help = new StringBuilder();
+        help.append("Available commands:\n");
+        help.append("1. HATCH NEW CHICK 'username'@'host' RECOGNITION 'auth_type'\n");
+        help.append("2. DROP CHICK 'username' ['reason']\n");
+        help.append("3. GRANT CHICK username PERMISSION type TO nest DURATION time\n");
+        help.append("4. REVOKE PERMISSION type FROM 'username' DURATION time\n");
+        help.append("5. CREATE ROLE 'role_name' hierarchy_number\n");
+        help.append("\nFor detailed documentation, please refer to the BDL manual.\n");
+        appendOutput(help.toString());
     }
 
 
     public static void main(String[] args) {
+        // Check for required environment variable first
+        if (System.getenv("BDL_MASTER_KEY") == null) {
+            System.err.println("Error: Environment variable BDL_MASTER_KEY is not set!");
+            System.err.println("\nPlease set the environment variable before running the application:");
+            System.err.println("Windows CMD: set BDL_MASTER_KEY=your_secure_key_here");
+            System.err.println("Windows PowerShell: $env:BDL_MASTER_KEY = 'your_secure_key_here'");
+            System.err.println("Linux/Mac: export BDL_MASTER_KEY=your_secure_key_here");
+            System.err.println("\nThe key should be a secure random string used for encryption.");
+            System.exit(1);
+            return;
+        }
+
         SwingUtilities.invokeLater(() -> {
-            BDLTerminal terminal = new BDLTerminal();
+            BDLTerminal terminal = null;
+            try {
+                terminal = new BDLTerminal();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
             terminal.setVisible(true);
         });
     }

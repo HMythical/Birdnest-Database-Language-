@@ -5,8 +5,14 @@ import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
 import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.KeySpec;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -143,5 +149,156 @@ public class Encryptor {
     public boolean isValidPhoneNumber(String phoneNumber) {
         // Basic validation - should be enhanced based on requirements
         return phoneNumber.matches("\\+?\\d{10,15}");
+    }
+
+    // AES encryption constants
+    private static final int AES_KEY_SIZE = 256;
+    private static final int GCM_NONCE_LENGTH = 12;
+    private static final int GCM_TAG_LENGTH = 16;
+    private static final int SALT_LENGTH = 16;
+    private static final String AES_ALGORITHM = "AES";
+    private static final String AES_GCM_ALGO = "AES/GCM/NoPadding";
+    private static final String AES_CBC_ALGO = "AES/CBC/PKCS5Padding";
+
+    // Generate a secure AES key
+    public SecretKey generateAESKey() throws NoSuchAlgorithmException {
+        javax.crypto.KeyGenerator keyGen = javax.crypto.KeyGenerator.getInstance(AES_ALGORITHM);
+        keyGen.init(AES_KEY_SIZE);
+        return keyGen.generateKey();
+    }
+
+    // Generate a key from password using PBKDF2
+    public SecretKey getAESKeyFromPassword(String password, byte[] salt)
+            throws NoSuchAlgorithmException, InvalidKeySpecException {
+        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+        KeySpec spec = new PBEKeySpec(
+            password.toCharArray(),
+            salt,
+            65536,
+            AES_KEY_SIZE
+        );
+        return new SecretKeySpec(factory.generateSecret(spec).getEncoded(), AES_ALGORITHM);
+    }
+
+    // AES-GCM encryption
+    public String encryptGCM(String plaintext, SecretKey key) throws Exception {
+        byte[] salt = new byte[SALT_LENGTH];
+        byte[] nonce = new byte[GCM_NONCE_LENGTH];
+        new SecureRandom().nextBytes(salt);
+        new SecureRandom().nextBytes(nonce);
+
+        Cipher cipher = Cipher.getInstance(AES_GCM_ALGO);
+        GCMParameterSpec parameterSpec = new GCMParameterSpec(GCM_TAG_LENGTH * 8, nonce);
+        cipher.init(Cipher.ENCRYPT_MODE, key, parameterSpec);
+        cipher.updateAAD(salt);
+
+        byte[] cipherText = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
+
+        // Combine salt + nonce + ciphertext
+        ByteBuffer buffer = ByteBuffer.allocate(salt.length + nonce.length + cipherText.length);
+        buffer.put(salt);
+        buffer.put(nonce);
+        buffer.put(cipherText);
+
+        return Base64.getEncoder().encodeToString(buffer.array());
+    }
+
+    // AES-GCM decryption
+    public String decryptGCM(String encryptedData, SecretKey key) throws Exception {
+        byte[] decoded = Base64.getDecoder().decode(encryptedData);
+        ByteBuffer buffer = ByteBuffer.wrap(decoded);
+
+        byte[] salt = new byte[SALT_LENGTH];
+        byte[] nonce = new byte[GCM_NONCE_LENGTH];
+        buffer.get(salt);
+        buffer.get(nonce);
+
+        byte[] cipherText = new byte[buffer.remaining()];
+        buffer.get(cipherText);
+
+        Cipher cipher = Cipher.getInstance(AES_GCM_ALGO);
+        GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH * 8, nonce);
+        cipher.init(Cipher.DECRYPT_MODE, key, spec);
+        cipher.updateAAD(salt);
+
+        return new String(cipher.doFinal(cipherText), StandardCharsets.UTF_8);
+    }
+
+    // AES-CBC encryption
+    public String encryptCBC(String plaintext, SecretKey key) throws Exception {
+        byte[] salt = new byte[SALT_LENGTH];
+        byte[] iv = new byte[16];
+        new SecureRandom().nextBytes(salt);
+        new SecureRandom().nextBytes(iv);
+
+        Cipher cipher = Cipher.getInstance(AES_CBC_ALGO);
+        cipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
+
+        byte[] cipherText = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
+
+        // Combine salt + iv + ciphertext
+        ByteBuffer buffer = ByteBuffer.allocate(salt.length + iv.length + cipherText.length);
+        buffer.put(salt);
+        buffer.put(iv);
+        buffer.put(cipherText);
+
+        return Base64.getEncoder().encodeToString(buffer.array());
+    }
+
+    // AES-CBC decryption
+    public String decryptCBC(String encryptedData, SecretKey key) throws Exception {
+        byte[] decoded = Base64.getDecoder().decode(encryptedData);
+        ByteBuffer buffer = ByteBuffer.wrap(decoded);
+
+        byte[] salt = new byte[SALT_LENGTH];
+        byte[] iv = new byte[16];
+        buffer.get(salt);
+        buffer.get(iv);
+
+        byte[] cipherText = new byte[buffer.remaining()];
+        buffer.get(cipherText);
+
+        Cipher cipher = Cipher.getInstance(AES_CBC_ALGO);
+        cipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
+
+        return new String(cipher.doFinal(cipherText), StandardCharsets.UTF_8);
+    }
+
+    // Utility method to encrypt sensitive user data
+    public User encryptUserData(User user, String encryptionKey) throws Exception {
+        SecretKey key = getAESKeyFromPassword(encryptionKey, new byte[SALT_LENGTH]);
+
+        // Encrypt sensitive fields
+        String encryptedPassword = encryptGCM(user.getPassword(), key);
+        String encryptedHost = encryptGCM(user.getHost(), key);
+
+        return new User(
+            user.getUsername(),
+            encryptedPassword,
+            encryptedHost,
+            user.getPermissions(),
+            user.isLock(),
+            user.getCreationDate(),
+            user.getCreator_id()
+        );
+    }
+
+    // Utility method to decrypt sensitive user data
+    public User decryptUserData(User user, String encryptionKey) throws Exception {
+        SecretKey key = getAESKeyFromPassword(encryptionKey, new byte[SALT_LENGTH]);
+
+        // Decrypt sensitive fields
+        String decryptedPassword = decryptGCM(user.getPassword(), key);
+        String decryptedHost = decryptGCM(user.getHost(), key);
+
+        return new User(
+            user.getUsername(),
+            decryptedPassword,
+            decryptedHost,
+            user.getPermissions(),
+            user.isLock(),
+            user.getCreationDate(),
+            user.getCreator_id()
+        );
     }
 }

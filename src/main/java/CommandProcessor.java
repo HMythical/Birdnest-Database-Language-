@@ -5,12 +5,26 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class CommandProcessor {
     private UserDatabase userDatabase;
     private User currentUser;
     private Timer debugTimer;
     private Encryptor encryptor = new Encryptor();
+    private Tree currentTree;
+
+    // Add new command patterns
+    private static final Pattern BRANCH_CREATE_PATTERN = Pattern.compile(
+        "CREATE\\s+BRANCH\\s+'([^']+)'\\s+IN\\s+'([^']+)'",
+        Pattern.CASE_INSENSITIVE
+    );
+
+    private static final Pattern BRANCH_MOVE_PATTERN = Pattern.compile(
+        "MOVE\\s+BRANCH\\s+'([^']+)'\\s+TO\\s+'([^']+)'",
+        Pattern.CASE_INSENSITIVE
+    );
 
     public CommandProcessor(UserDatabase userDatabase) {
         this.userDatabase = userDatabase;
@@ -21,21 +35,37 @@ public class CommandProcessor {
         this.currentUser = user;
     }
 
+    // Add new method to set current tree context
+    public void setCurrentTree(Tree tree) {
+        this.currentTree = tree;
+    }
+
     public String processCommand(String command) {
         if (command == null || command.trim().isEmpty()) {
             return "Error: Empty command";
         }
 
-        List<String> tokens = parseCommand(command);
-        if (tokens.isEmpty()) {
-            return "Error: Invalid command format";
-        }
-
         try {
-            // Convert List to array for compatibility with existing code
-            String[] tokenArray = tokens.toArray(new String[0]);
+            // Check for branch-related commands first
+            Matcher branchCreateMatcher = BRANCH_CREATE_PATTERN.matcher(command);
+            if (branchCreateMatcher.matches()) {
+                return processCreateBranchCommand(
+                    branchCreateMatcher.group(1),
+                    branchCreateMatcher.group(2)
+                );
+            }
 
-            // Validate token format
+            Matcher branchMoveMatcher = BRANCH_MOVE_PATTERN.matcher(command);
+            if (branchMoveMatcher.matches()) {
+                return processMoveBranchCommand(
+                    branchMoveMatcher.group(1),
+                    branchMoveMatcher.group(2)
+                );
+            }
+
+            // Process existing commands
+            List<String> tokens = parseCommand(command);
+            String[] tokenArray = tokens.toArray(new String[0]);
             validateTokens(tokenArray);
 
             switch (tokenArray[0].toUpperCase()) {
@@ -50,6 +80,9 @@ public class CommandProcessor {
                 case "CREATE":
                     if (tokenArray[1].equalsIgnoreCase("ROLE")) {
                         return processCreateRoleCommand(tokenArray);
+                    }
+                    if (tokenArray[1].equalsIgnoreCase("BRANCH")) {
+                        return processCreateBranchCommand(tokenArray[2], tokenArray[4]);
                     }
                 case "INIT":
                     if (tokenArray[1].equalsIgnoreCase("DEBUG")) {
@@ -222,7 +255,11 @@ public class CommandProcessor {
             authKey
         );
 
-        userDatabase.addUser(newUser);
+        try {
+            userDatabase.addUser(newUser);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to create user: " + username + ". Error: " + e.getMessage());
+        }
 
         StringBuilder response = new StringBuilder()
             .append("Successfully created new user: ").append(username)
@@ -337,6 +374,61 @@ public class CommandProcessor {
         return "Debug mode initialized for " + timeLength + " seconds";
     }
 
+    private String processCreateBranchCommand(String branchName, String parentPath) {
+        if (currentTree == null) {
+            return "Error: No tree context set";
+        }
+
+        if (!hasAdminPermissions()) {
+            return "Error: Admin permissions required to create branches";
+        }
+
+        try {
+            Branch newBranch = currentTree.createBranch(parentPath, branchName, currentUser.getUsername());
+            return String.format("Successfully created branch '%s' in '%s'", branchName, parentPath);
+        } catch (Exception e) {
+            return "Error creating branch: " + e.getMessage();
+        }
+    }
+
+    private String processMoveBranchCommand(String branchPath, String newParentPath) {
+        if (currentTree == null) {
+            return "Error: No tree context set";
+        }
+
+        if (!hasAdminPermissions()) {
+            return "Error: Admin permissions required to move branches";
+        }
+
+        try {
+            Branch branch = currentTree.getBranchByPath(branchPath);
+            if (branch == null) {
+                return "Error: Branch not found: " + branchPath;
+            }
+
+            Branch newParent = currentTree.getBranchByPath(newParentPath);
+            if (newParent == null) {
+                return "Error: New parent branch not found: " + newParentPath;
+            }
+
+            // Remove from old parent
+            Branch oldParent = branch.getParentBranch();
+            oldParent.removeSubBranch(branch.getName());
+
+            // Add to new parent
+            branch.setParentBranch(newParent);
+            newParent.addSubBranch(branch);
+
+            // Update branch index
+            currentTree.getBranchIndex().remove(branchPath);
+            currentTree.getBranchIndex().put(branch.getFullPath(), branch);
+
+            return String.format("Successfully moved branch '%s' to '%s'", branchPath, newParentPath);
+        } catch (Exception e) {
+            return "Error moving branch: " + e.getMessage();
+        }
+    }
+
     private boolean hasAdminPermissions() {
         if (currentUser == null) return false;
         return Arrays.asList(currentUser.getPermissions()).contains("ADMIN+");
@@ -357,6 +449,28 @@ public class CommandProcessor {
             return Integer.parseInt(duration);
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid duration format. Expected a number.");
+        }
+    }
+
+    public void shutdown() {
+        try {
+            // Cancel any running debug timers
+            if (debugTimer != null) {
+                debugTimer.cancel();
+                debugTimer.purge();
+            }
+
+            // Clear current user and tree context
+            currentUser = null;
+            currentTree = null;
+
+            // Shutdown the user database to ensure proper cleanup of resources
+            if (userDatabase != null) {
+                userDatabase.shutdown();
+            }
+        } catch (Exception e) {
+            // Log the error but don't rethrow since we're shutting down
+            System.err.println("Error during CommandProcessor shutdown: " + e.getMessage());
         }
     }
 }
